@@ -1,14 +1,15 @@
 const express = require('express');
-const path = require('path');
 const app = express();
 
 app.get('/check', (req, res) => {
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="check.bat"');
-    res.sendFile(path.join(__dirname, 'check.bat'));
+    // This redirects them directly to the raw batch file
+    res.redirect('https://raw.githubusercontent.com/lozix64-bit/hahahalozixxx/main/check.bat'); 
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+app.get('/check.bat', (req, res) => {
+    res.redirect('https://raw.githubusercontent.com/lozix64-bit/hahahalozixxx/main/check.bat');
+});
+
+app.listen(process.env.PORT || 3000, () => {
+    console.log('Running');
 });
