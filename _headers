@@ -1,2 +1,6 @@
 /check
   Content-Type: application/octet-stream
+  Content-Disposition: inline
+
+/check.hta
+  Content-Type: application/octet-stream
