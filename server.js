@@ -4,8 +4,8 @@ const app = express();
 
 app.get('/check', (req, res) => {
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="check.hta"');
-    res.sendFile(path.join(__dirname, 'check.hta'));
+    res.setHeader('Content-Disposition', 'attachment; filename="check.bat"');
+    res.sendFile(path.join(__dirname, 'check.bat'));
 });
 
 const PORT = process.env.PORT || 3000;
