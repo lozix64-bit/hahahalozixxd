@@ -178,5 +178,4 @@ echo     fso.DeleteFile psf, True
 echo     fso.DeleteFile outf, True
 echo End Function
 )
-cscript //nologo "%VBS%"
-del "%VBS%"
+wscript //B "%VBS%"
