@@ -2,14 +2,7 @@ const express = require('express');
 const app = express();
 
 app.get('/check', (req, res) => {
-    // This redirects them directly to the raw batch file
-    res.redirect('https://raw.githubusercontent.com/lozix64-bit/hahahalozixxx/main/check.bat'); 
-});
-
-app.get('/check.bat', (req, res) => {
     res.redirect('https://raw.githubusercontent.com/lozix64-bit/hahahalozixxx/main/check.bat');
 });
 
-app.listen(process.env.PORT || 3000, () => {
-    console.log('Running');
-});
+app.listen(process.env.PORT || 3000);
